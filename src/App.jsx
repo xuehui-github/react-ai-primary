@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 
 const menuGroups = [
@@ -23,6 +23,10 @@ const menuGroups = [
 ]
 
 const columns = ['估值日期', '账户名称', '账户代码', '总资产', '负债', '净资产', '实收资本金额']
+const defaultColumnWidths = [150, 320, 180, 180, 180, 180, 180]
+
+const pageSize = 15
+const prodAssetValuUrl = '/v1/prodAssetValu/queryList'
 
 const dataSets = {
   '账户信息(估值表)': [
@@ -77,17 +81,139 @@ const fallbackRows = [
   ['2026-06-12', '演示账户-列表已切换', 'DEMO_SWITCH', '86,200,000.00', '2,160,000.00', '84,040,000.00', '80,000,000.00'],
 ]
 
+const formatAmount = (value) => {
+  if (value === null || value === undefined || value === '') return '-'
+  return Number(value).toLocaleString('zh-CN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+const mapValuationRecord = (record) => [
+  record.begDate || '-',
+  record.secuAccname || '-',
+  record.secuAccid || '-',
+  formatAmount(record.totalassets),
+  formatAmount(record.liabilities),
+  formatAmount(record.netSum),
+  formatAmount(record.actulamount),
+]
+
+const getPaginationPages = (totalPages) => {
+  if (totalPages < 1) return []
+  if (totalPages <= 10) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
+  }
+
+  return [
+    ...Array.from({ length: 9 }, (_, index) => index + 1),
+    'ellipsis',
+    totalPages,
+  ]
+}
+
 function App() {
   const [activeMenu, setActiveMenu] = useState('账户信息(估值表)')
   const [activeTab, setActiveTab] = useState('专户')
   const [accountName, setAccountName] = useState('')
   const [statusText, setStatusText] = useState('展示专户估值数据')
+  const [specialAccountRows, setSpecialAccountRows] = useState([])
+  const [specialAccountPage, setSpecialAccountPage] = useState({
+    pageNum: 1,
+    pageSize,
+    total: 0,
+    pages: 0,
+  })
+  const [specialAccountLoading, setSpecialAccountLoading] = useState(false)
+  const [specialAccountError, setSpecialAccountError] = useState('')
+  const [columnWidths, setColumnWidths] = useState(defaultColumnWidths)
+  const [resizingColumn, setResizingColumn] = useState(null)
+
+  const fetchSpecialAccountRows = useCallback(async (pageNum = 1, secuAccname = '') => {
+    setSpecialAccountLoading(true)
+    setSpecialAccountError('')
+
+    try {
+      const response = await fetch(prodAssetValuUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pageNum,
+          pageSize,
+          ...(secuAccname ? { secuAccname } : {}),
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`接口返回 ${response.status}`)
+      }
+
+      const result = await response.json()
+      const records = Array.isArray(result.records) ? result.records : []
+
+      setSpecialAccountRows(records.map(mapValuationRecord))
+      setSpecialAccountPage({
+        pageNum: result.pageNum || pageNum,
+        pageSize: result.pageSize || pageSize,
+        total: result.total || 0,
+        pages: result.pages || 0,
+      })
+      setStatusText(`专户估值数据已加载，共 ${result.total || 0} 条`)
+    } catch (error) {
+      setSpecialAccountRows([])
+      setSpecialAccountPage((current) => ({ ...current, pageNum, total: 0, pages: 0 }))
+      setSpecialAccountError(error.message || '接口请求失败')
+      setStatusText('专户估值接口请求失败')
+    } finally {
+      setSpecialAccountLoading(false)
+    }
+  }, [])
 
   const rows = useMemo(() => {
+    if (activeTab === '专户') return specialAccountRows
+
     const source = dataSets[activeTab] || dataSets[activeMenu] || fallbackRows
     if (!accountName.trim()) return source
     return source.filter((row) => row[1].includes(accountName.trim()) || row[2].includes(accountName.trim()))
-  }, [activeMenu, activeTab, accountName])
+  }, [activeMenu, activeTab, accountName, specialAccountRows])
+
+  const paginationPages = useMemo(() => (
+    getPaginationPages(specialAccountPage.pages)
+  ), [specialAccountPage.pages])
+
+  useEffect(() => {
+    if (activeTab !== '专户') return undefined
+
+    const timerId = window.setTimeout(() => {
+      fetchSpecialAccountRows(1)
+    }, 0)
+
+    return () => window.clearTimeout(timerId)
+  }, [activeTab, fetchSpecialAccountRows])
+
+  useEffect(() => {
+    if (!resizingColumn) return undefined
+
+    const handlePointerMove = (event) => {
+      const nextWidth = Math.max(96, resizingColumn.startWidth + event.clientX - resizingColumn.startX)
+
+      setColumnWidths((currentWidths) => (
+        currentWidths.map((width, index) => (index === resizingColumn.index ? nextWidth : width))
+      ))
+    }
+
+    const handlePointerUp = () => {
+      setResizingColumn(null)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+    }
+  }, [resizingColumn])
 
   const handleMenuClick = (label) => {
     setActiveMenu(label)
@@ -105,14 +231,34 @@ function App() {
       setAccountName('')
       setActiveTab('专户')
       setStatusText('筛选条件已重置')
+      fetchSpecialAccountRows(1, '')
       return
     }
     if (label === '查询') {
+      if (activeTab === '专户') {
+        fetchSpecialAccountRows(1, accountName.trim())
+        setStatusText(accountName ? `查询专户：${accountName}` : '查询全部专户')
+        return
+      }
       setStatusText(accountName ? `查询账户：${accountName}` : '查询全部账户')
       return
     }
     setActiveTab('')
     setStatusText(`${label} 操作已触发，展示临时结果`)
+  }
+
+  const handlePageChange = (nextPage) => {
+    if (nextPage < 1 || nextPage > specialAccountPage.pages || specialAccountLoading) return
+    fetchSpecialAccountRows(nextPage, accountName.trim())
+  }
+
+  const handleColumnResizeStart = (event, index) => {
+    event.preventDefault()
+    setResizingColumn({
+      index,
+      startX: event.clientX,
+      startWidth: columnWidths[index],
+    })
   }
 
   return (
@@ -211,20 +357,81 @@ function App() {
           </div>
           <div className="table-wrap">
             <table>
+              <colgroup>
+                {columns.map((column, index) => (
+                  <col key={column} style={{ width: `${columnWidths[index]}px` }} />
+                ))}
+              </colgroup>
               <thead>
-                <tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr>
+                <tr>
+                  {columns.map((column, index) => (
+                    <th key={column}>
+                      <span>{column}</span>
+                      <button
+                        className="column-resizer"
+                        type="button"
+                        aria-label={`拖动调整${column}列宽`}
+                        onPointerDown={(event) => handleColumnResizeStart(event, index)}
+                      ></button>
+                    </th>
+                  ))}
+                </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
+                {rows.map((row, rowIndex) => (
                   <tr key={`${row[0]}-${row[2]}-${row[3]}`}>
                     {row.map((cell, index) => (
-                      <td title={cell} key={cell}>{index === 1 ? <strong>{cell}</strong> : cell}</td>
+                      <td title={cell} key={`${rowIndex}-${index}`}>{index === 1 ? <strong>{cell}</strong> : cell}</td>
                     ))}
                   </tr>
                 ))}
               </tbody>
             </table>
+            {specialAccountLoading && activeTab === '专户' && <div className="table-state">专户估值数据加载中...</div>}
+            {!specialAccountLoading && activeTab === '专户' && specialAccountError && (
+              <div className="table-state error">{specialAccountError}</div>
+            )}
+            {!specialAccountLoading && !specialAccountError && rows.length === 0 && (
+              <div className="table-state">暂无数据</div>
+            )}
           </div>
+          {activeTab === '专户' && (
+            <div className="table-pagination">
+              <button
+                className="page-arrow"
+                type="button"
+                aria-label="上一页"
+                onClick={() => handlePageChange(specialAccountPage.pageNum - 1)}
+                disabled={specialAccountPage.pageNum <= 1 || specialAccountLoading}
+              >
+                ‹
+              </button>
+              {paginationPages.map((page) => (
+                page === 'ellipsis'
+                  ? <span className="page-ellipsis" key={page}>...</span>
+                  : (
+                    <button
+                      className={`page-number ${specialAccountPage.pageNum === page ? 'active' : ''}`}
+                      type="button"
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      disabled={specialAccountLoading}
+                    >
+                      {page}
+                    </button>
+                  )
+              ))}
+              <button
+                className="page-arrow"
+                type="button"
+                aria-label="下一页"
+                onClick={() => handlePageChange(specialAccountPage.pageNum + 1)}
+                disabled={specialAccountPage.pageNum >= specialAccountPage.pages || specialAccountLoading}
+              >
+                ›
+              </button>
+            </div>
+          )}
         </section>
 
         <footer className="quick-tools">
