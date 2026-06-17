@@ -6,8 +6,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/v1': {
-        target: 'http://localhost:9089',
+      '/ficc': {
+        target: 'http://localhost:10010',
         changeOrigin: true,
       },
     },
