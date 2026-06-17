@@ -27,6 +27,7 @@ const defaultColumnWidths = [150, 320, 180, 180, 180, 180, 180]
 
 const pageSize = 15
 const prodAssetValuUrl = '/v1/prodAssetValu/queryList'
+const prodAssetValuOfInUrl = '/v1/prodAssetValuOfIn/queryList'
 
 const dataSets = {
   '账户信息(估值表)': [
@@ -83,10 +84,21 @@ const fallbackRows = [
 
 const formatAmount = (value) => {
   if (value === null || value === undefined || value === '') return '-'
-  return Number(value).toLocaleString('zh-CN', {
+  const numberValue = Number(value)
+  if (Number.isNaN(numberValue)) return '-'
+
+  return numberValue.toLocaleString('zh-CN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })
+}
+
+const formatBizDate = (value) => {
+  if (!value) return '-'
+  const dateText = String(value)
+  if (dateText.length !== 8) return dateText
+
+  return `${dateText.slice(0, 4)}-${dateText.slice(4, 6)}-${dateText.slice(6, 8)}`
 }
 
 const mapValuationRecord = (record) => [
@@ -97,6 +109,16 @@ const mapValuationRecord = (record) => [
   formatAmount(record.liabilities),
   formatAmount(record.netSum),
   formatAmount(record.actulamount),
+]
+
+const mapAccountValuationRecord = (record) => [
+  formatBizDate(record.bizDt),
+  record.acctName || '-',
+  record.acctId || '-',
+  formatAmount(record.totalAsset),
+  formatAmount(Number(record.totalAsset || 0) - Number(record.netAsset || 0)),
+  formatAmount(record.netAsset),
+  formatAmount(record.ordAmt),
 ]
 
 const getPaginationPages = (totalPages) => {
@@ -116,6 +138,8 @@ function App() {
   const [activeMenu, setActiveMenu] = useState('账户信息(估值表)')
   const [activeTab, setActiveTab] = useState('专户')
   const [accountName, setAccountName] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [statusText, setStatusText] = useState('展示专户估值数据')
   const [specialAccountRows, setSpecialAccountRows] = useState([])
   const [specialAccountPage, setSpecialAccountPage] = useState({
@@ -126,14 +150,27 @@ function App() {
   })
   const [specialAccountLoading, setSpecialAccountLoading] = useState(false)
   const [specialAccountError, setSpecialAccountError] = useState('')
+  const [accountRows, setAccountRows] = useState([])
+  const [accountPage, setAccountPage] = useState({
+    pageNum: 1,
+    pageSize,
+    total: 0,
+    pages: 0,
+  })
+  const [accountLoading, setAccountLoading] = useState(false)
+  const [accountError, setAccountError] = useState('')
   const [columnWidths, setColumnWidths] = useState(defaultColumnWidths)
   const [resizingColumn, setResizingColumn] = useState(null)
 
-  const fetchSpecialAccountRows = useCallback(async (pageNum = 1, secuAccname = '') => {
+  const fetchSpecialAccountRows = useCallback(async (pageNum = 1, filters = {}) => {
     setSpecialAccountLoading(true)
     setSpecialAccountError('')
 
     try {
+      const secuAccname = filters.secuAccname?.trim()
+      const requestStartDate = filters.startDate?.trim()
+      const requestEndDate = filters.endDate?.trim()
+
       const response = await fetch(prodAssetValuUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -141,6 +178,8 @@ function App() {
           pageNum,
           pageSize,
           ...(secuAccname ? { secuAccname } : {}),
+          ...(requestStartDate ? { startDate: requestStartDate } : {}),
+          ...(requestEndDate ? { endDate: requestEndDate } : {}),
         }),
       })
 
@@ -169,17 +208,69 @@ function App() {
     }
   }, [])
 
+  const fetchAccountRows = useCallback(async (pageNum = 1, filters = {}) => {
+    setAccountLoading(true)
+    setAccountError('')
+
+    try {
+      const acctName = filters.acctName?.trim()
+      const requestStartDate = filters.startDate?.trim()
+      const requestEndDate = filters.endDate?.trim()
+
+      const response = await fetch(prodAssetValuOfInUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pageNum,
+          pageSize,
+          ...(acctName ? { acctName } : {}),
+          ...(requestStartDate ? { startDate: requestStartDate } : {}),
+          ...(requestEndDate ? { endDate: requestEndDate } : {}),
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`接口返回 ${response.status}`)
+      }
+
+      const result = await response.json()
+      const records = Array.isArray(result.records) ? result.records : []
+
+      setAccountRows(records.map(mapAccountValuationRecord))
+      setAccountPage({
+        pageNum: result.pageNum || pageNum,
+        pageSize: result.pageSize || pageSize,
+        total: result.total || 0,
+        pages: result.pages || 0,
+      })
+      setStatusText(`账户估值数据已加载，共 ${result.total || 0} 条`)
+    } catch (error) {
+      setAccountRows([])
+      setAccountPage((current) => ({ ...current, pageNum, total: 0, pages: 0 }))
+      setAccountError(error.message || '接口请求失败')
+      setStatusText('账户估值接口请求失败')
+    } finally {
+      setAccountLoading(false)
+    }
+  }, [])
+
   const rows = useMemo(() => {
     if (activeTab === '专户') return specialAccountRows
+    if (activeTab === '账户') return accountRows
 
     const source = dataSets[activeTab] || dataSets[activeMenu] || fallbackRows
     if (!accountName.trim()) return source
     return source.filter((row) => row[1].includes(accountName.trim()) || row[2].includes(accountName.trim()))
-  }, [activeMenu, activeTab, accountName, specialAccountRows])
+  }, [activeMenu, activeTab, accountName, specialAccountRows, accountRows])
+
+  const currentPage = activeTab === '账户' ? accountPage : specialAccountPage
+  const currentLoading = activeTab === '账户' ? accountLoading : specialAccountLoading
+  const currentError = activeTab === '账户' ? accountError : specialAccountError
+  const isPagedTab = activeTab === '专户' || activeTab === '账户'
 
   const paginationPages = useMemo(() => (
-    getPaginationPages(specialAccountPage.pages)
-  ), [specialAccountPage.pages])
+    getPaginationPages(currentPage.pages)
+  ), [currentPage.pages])
 
   useEffect(() => {
     if (activeTab !== '专户') return undefined
@@ -190,6 +281,16 @@ function App() {
 
     return () => window.clearTimeout(timerId)
   }, [activeTab, fetchSpecialAccountRows])
+
+  useEffect(() => {
+    if (activeTab !== '账户') return undefined
+
+    const timerId = window.setTimeout(() => {
+      fetchAccountRows(1)
+    }, 0)
+
+    return () => window.clearTimeout(timerId)
+  }, [activeTab, fetchAccountRows])
 
   useEffect(() => {
     if (!resizingColumn) return undefined
@@ -217,6 +318,11 @@ function App() {
 
   const handleMenuClick = (label) => {
     setActiveMenu(label)
+    if (label === '账户信息(估值表)') {
+      setActiveTab('专户')
+      setStatusText('展示专户估值数据')
+      return
+    }
     setActiveTab(dataSets[label] ? label : '')
     setStatusText(`${label} 数据已加载`)
   }
@@ -229,15 +335,30 @@ function App() {
   const handleAction = (label) => {
     if (label === '重置') {
       setAccountName('')
+      setStartDate('')
+      setEndDate('')
       setActiveTab('专户')
       setStatusText('筛选条件已重置')
-      fetchSpecialAccountRows(1, '')
+      fetchSpecialAccountRows(1)
       return
     }
     if (label === '查询') {
       if (activeTab === '专户') {
-        fetchSpecialAccountRows(1, accountName.trim())
+        fetchSpecialAccountRows(1, {
+          secuAccname: accountName,
+          startDate,
+          endDate,
+        })
         setStatusText(accountName ? `查询专户：${accountName}` : '查询全部专户')
+        return
+      }
+      if (activeTab === '账户') {
+        fetchAccountRows(1, {
+          acctName: accountName,
+          startDate,
+          endDate,
+        })
+        setStatusText(accountName ? `查询账户：${accountName}` : '查询全部账户')
         return
       }
       setStatusText(accountName ? `查询账户：${accountName}` : '查询全部账户')
@@ -248,8 +369,20 @@ function App() {
   }
 
   const handlePageChange = (nextPage) => {
-    if (nextPage < 1 || nextPage > specialAccountPage.pages || specialAccountLoading) return
-    fetchSpecialAccountRows(nextPage, accountName.trim())
+    if (nextPage < 1 || nextPage > currentPage.pages || currentLoading) return
+    if (activeTab === '账户') {
+      fetchAccountRows(nextPage, {
+        acctName: accountName,
+        startDate,
+        endDate,
+      })
+      return
+    }
+    fetchSpecialAccountRows(nextPage, {
+      secuAccname: accountName,
+      startDate,
+      endDate,
+    })
   }
 
   const handleColumnResizeStart = (event, index) => {
@@ -311,7 +444,7 @@ function App() {
             <strong>▣ {activeMenu}</strong>
           </div>
           <div className="user-tools">
-            {['⛶', '更多⌄', '姚思佳⌄'].map((label) => (
+            {['⛶', '更多⌄', '薛辉⌄'].map((label) => (
               <button type="button" key={label} onClick={() => handleAction(label)}>{label}</button>
             ))}
           </div>
@@ -331,9 +464,19 @@ function App() {
           </label>
           <label>
             估值日期
-            <input type="date" aria-label="开始日期" />
+            <input
+              type="date"
+              aria-label="开始日期"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+            />
             <span>-</span>
-            <input type="date" aria-label="结束日期" />
+            <input
+              type="date"
+              aria-label="结束日期"
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+            />
           </label>
           <div className="filter-actions">
             <button className="primary" type="button" onClick={() => handleAction('查询')}>⌕ 查询</button>
@@ -387,22 +530,22 @@ function App() {
                 ))}
               </tbody>
             </table>
-            {specialAccountLoading && activeTab === '专户' && <div className="table-state">专户估值数据加载中...</div>}
-            {!specialAccountLoading && activeTab === '专户' && specialAccountError && (
-              <div className="table-state error">{specialAccountError}</div>
+            {isPagedTab && currentLoading && <div className="table-state">{activeTab}估值数据加载中...</div>}
+            {isPagedTab && !currentLoading && currentError && (
+              <div className="table-state error">{currentError}</div>
             )}
-            {!specialAccountLoading && !specialAccountError && rows.length === 0 && (
+            {!currentLoading && !currentError && rows.length === 0 && (
               <div className="table-state">暂无数据</div>
             )}
           </div>
-          {activeTab === '专户' && (
+          {isPagedTab && (
             <div className="table-pagination">
               <button
                 className="page-arrow"
                 type="button"
                 aria-label="上一页"
-                onClick={() => handlePageChange(specialAccountPage.pageNum - 1)}
-                disabled={specialAccountPage.pageNum <= 1 || specialAccountLoading}
+                onClick={() => handlePageChange(currentPage.pageNum - 1)}
+                disabled={currentPage.pageNum <= 1 || currentLoading}
               >
                 ‹
               </button>
@@ -411,11 +554,11 @@ function App() {
                   ? <span className="page-ellipsis" key={page}>...</span>
                   : (
                     <button
-                      className={`page-number ${specialAccountPage.pageNum === page ? 'active' : ''}`}
+                      className={`page-number ${currentPage.pageNum === page ? 'active' : ''}`}
                       type="button"
                       key={page}
                       onClick={() => handlePageChange(page)}
-                      disabled={specialAccountLoading}
+                      disabled={currentLoading}
                     >
                       {page}
                     </button>
@@ -425,8 +568,8 @@ function App() {
                 className="page-arrow"
                 type="button"
                 aria-label="下一页"
-                onClick={() => handlePageChange(specialAccountPage.pageNum + 1)}
-                disabled={specialAccountPage.pageNum >= specialAccountPage.pages || specialAccountLoading}
+                onClick={() => handlePageChange(currentPage.pageNum + 1)}
+                disabled={currentPage.pageNum >= currentPage.pages || currentLoading}
               >
                 ›
               </button>
