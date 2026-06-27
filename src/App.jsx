@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 
+const columns = ['估值日期', '账户名称', '账户代码', '总资产', '负债', '净资产', '实收资本金额']
+const defaultColumnWidths = [150, 320, 180, 180, 180, 180, 180]
+
+const pageSize = 15
+const prodAssetValuUrl = '/ficc/prodAssetValu/queryList'
+const prodAssetValuOfInUrl = '/ficc/prodAssetValuOfIn/queryList'
+const dualProdAssetValuOfoutUrl = '/ficc/dualProdAssetValuOfout/queryList'
+const authToken = 'Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJ1c2VyLTAwMSIsInVzZXJuYW1lIjoiYWRtaW4iLCJpYXQiOjE3ODI1NjQ1NDgsImV4cCI6MTc4MjY1MDk0OH0.uU-8hZEncotQDaNoiPsy8LA5i0pAwzU5zIzF-Q6p92GKw3YQXLrsCXrV6wpXTXMr'
+
+
 const menuGroups = [
   { label: '首页', icon: '⌂' },
   {
@@ -69,15 +79,6 @@ const menuGroups = [
     children: ['用户管理', '角色管理', '权限配置'],
   },
 ]
-
-const columns = ['估值日期', '账户名称', '账户代码', '总资产', '负债', '净资产', '实收资本金额']
-const defaultColumnWidths = [150, 320, 180, 180, 180, 180, 180]
-
-const pageSize = 15
-const prodAssetValuUrl = '/ficc/prodAssetValu/queryList'
-const prodAssetValuOfInUrl = '/ficc/prodAssetValuOfIn/queryList'
-const dualProdAssetValuOfoutUrl = '/ficc/dualProdAssetValuOfout/queryList'
-const authToken = 'Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJ1c2VyLTAwMSIsInVzZXJuYW1lIjoiYWRtaW4iLCJpYXQiOjE3ODI1NjQ1NDgsImV4cCI6MTc4MjY1MDk0OH0.uU-8hZEncotQDaNoiPsy8LA5i0pAwzU5zIzF-Q6p92GKw3YQXLrsCXrV6wpXTXMr'
 
 
 const dataSets = {
