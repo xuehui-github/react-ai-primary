@@ -492,6 +492,10 @@ function App() {
     })
   }
 
+  const handleToggleMenu = (label) => {
+    setExpandedMenus((prev) => ({ ...prev, [label]: !prev[label] }))
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -505,13 +509,13 @@ function App() {
               <button
                 className={`nav-item ${activeMenu === item.label ? 'active-parent' : ''}`}
                 type="button"
-                onClick={() => handleMenuClick(item.label)}
+                onClick={() => item.children ? handleToggleMenu(item.label) : handleMenuClick(item.label)}
               >
                 <span>{item.icon}</span>
                 <b>{item.label}</b>
-                <small>{item.children ? '⌃' : '⌄'}</small>
+                <small>{item.children ? (expandedMenus[item.label] ? '⌃' : '⌄') : '⌄'}</small>
               </button>
-              {item.children && (
+              {item.children && expandedMenus[item.label] && (
                 <div className="sub-nav">
                   {item.children.map((child) => (
                     <button
