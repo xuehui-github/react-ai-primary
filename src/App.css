@@ -101,6 +101,27 @@
   color: #fff;
 }
 
+.menu-toggle {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #9ba0aa;
+  font-size: 14px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+
+.menu-toggle:hover {
+  background: #dde3f5;
+  color: #4c5058;
+}
+
 .workspace {
   min-width: 0;
   display: flex;
