@@ -107,6 +107,35 @@
   flex-direction: column;
 }
 
+.welcome-page {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 14px 28px 0;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 2px 14px rgba(34, 46, 78, 0.12);
+}
+
+.welcome-content {
+  text-align: center;
+}
+
+.welcome-content h1 {
+  margin: 0 0 16px;
+  font-size: 48px;
+  font-weight: 300;
+  color: #2d4d92;
+}
+
+.welcome-content p {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+  color: #3a3f49;
+}
+
 .topbar {
   height: 64px;
   display: flex;
@@ -151,10 +180,35 @@
 .page-tab {
   height: 54px;
   padding: 0 28px;
+  color: #a3a9b3;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.page-tab.active {
   background: #eef3ff !important;
   color: #5579ee !important;
   border-bottom: 3px solid #5a7df0 !important;
-  font-weight: 700;
+}
+
+.tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  font-size: 16px;
+  line-height: 1;
+  color: #9ba0aa;
+}
+
+.tab-close:hover {
+  background: #d0d6f0;
+  color: #4c5058;
 }
 
 .filter-panel,

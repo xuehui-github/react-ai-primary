@@ -13,6 +13,7 @@ import DataTable from './components/DataTable'
 import Pagination from './components/Pagination'
 
 function App() {
+  const [openTabs, setOpenTabs] = useState([{ label: '账户信息(估值表)', subTab: '专户' }])
   const [activeMenu, setActiveMenu] = useState('账户信息(估值表)')
   const [activeTab, setActiveTab] = useState('专户')
   const [accountName, setAccountName] = useState('')
@@ -78,6 +79,7 @@ function App() {
   const currentLoading = activePagedData.loading
   const currentError = activePagedData.error
   const isPagedTab = activeTab in tabDataMap
+  const isHomePage = activeMenu === '首页'
 
   const paginationPages = useMemo(() => (
     getPaginationPages(currentPage.pages)
@@ -85,18 +87,52 @@ function App() {
 
   const handleMenuClick = (label) => {
     setActiveMenu(label)
-    if (label === '账户信息(估值表)') {
-      setActiveTab('专户')
-      setStatusText('展示专户估值数据')
+    if (label === '首页') {
+      setStatusText('欢迎页面')
       return
     }
-    setActiveTab(dataSets[label] ? label : '')
-    setStatusText(`${label} 数据已加载`)
+
+    // 添加到页签列表（去重），已有则恢复之前的 subTab
+    setOpenTabs((prev) => {
+      const existing = prev.find((tab) => tab.label === label)
+      if (existing) {
+        setActiveTab(existing.subTab || label)
+        setStatusText(`${label} 数据已加载`)
+        return prev
+      }
+      const defaultSubTab = label === '账户信息(估值表)' ? '专户' : null
+      setActiveTab(defaultSubTab || label)
+      setStatusText(`${label} 数据已加载`)
+      return [...prev, { label, subTab: defaultSubTab }]
+    })
+  }
+
+  const handleCloseTab = (label) => {
+    setOpenTabs((prev) => {
+      const next = prev.filter((tab) => tab.label !== label)
+      if (next.length === 0) {
+        setActiveMenu('首页')
+        setActiveTab('')
+        setStatusText('欢迎页面')
+        return next
+      }
+      if (label === activeMenu) {
+        const last = next[next.length - 1]
+        setActiveMenu(last.label)
+        if (last.subTab) setActiveTab(last.subTab)
+        else setActiveTab(dataSets[last.label] ? last.label : '')
+        setStatusText(`${last.label} 数据已加载`)
+      }
+      return next
+    })
   }
 
   const handleTabClick = (tab) => {
     setActiveTab(tab)
     setStatusText(`展示${tab}数据`)
+    setOpenTabs((prev) => prev.map((t) =>
+      t.label === activeMenu ? { ...t, subTab: tab } : t
+    ))
   }
 
   const handleToggleMenu = (label) => {
@@ -164,55 +200,80 @@ function App() {
 
         <div className="tab-strip">
           <button type="button" onClick={() => handleMenuClick('首页')}>⌂ 首页</button>
-          <button className="page-tab" type="button" onClick={() => handleMenuClick('账户信息(估值表)')}>
-            ▣ 账户信息(估值表) ×
-          </button>
+          {openTabs.map((tab) => (
+            <button
+              className={`page-tab ${activeMenu === tab.label ? 'active' : ''}`}
+              type="button"
+              key={tab.label}
+              onClick={() => handleMenuClick(tab.label)}
+            >
+              ▣ {tab.label}
+              <span
+                className="tab-close"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleCloseTab(tab.label)
+                }}
+              > ×</span>
+            </button>
+          ))}
         </div>
 
-        <FilterPanel
-          accountName={accountName}
-          startDate={startDate}
-          endDate={endDate}
-          onAccountNameChange={setAccountName}
-          onStartDateChange={setStartDate}
-          onEndDateChange={setEndDate}
-          onAction={handleAction}
-        />
-
-        <section className="table-card">
-          <div className="table-tabs">
-            {['专户', '账户', '第二估值'].map((tab) => (
-              <button
-                className={activeTab === tab ? 'selected' : ''}
-                type="button"
-                key={tab}
-                onClick={() => handleTabClick(tab)}
-              >
-                {tab}
-              </button>
-            ))}
-            <span>{statusText}</span>
-          </div>
-
-          <DataTable
-            rows={rows}
-            columnWidths={columnWidths}
-            isPagedTab={isPagedTab}
-            currentLoading={currentLoading}
-            currentError={currentError}
-            activeTab={activeTab}
-            onColumnResizeStart={handleColumnResizeStart}
-          />
-
-          {isPagedTab && (
-            <Pagination
-              currentPage={currentPage}
-              paginationPages={paginationPages}
-              currentLoading={currentLoading}
-              onPageChange={handlePageChange}
+        {isHomePage ? (
+          <section className="welcome-page">
+            <div className="welcome-content">
+              <h1>欢迎进入</h1>
+              <p>FICC投资顾问业务管理系统</p>
+            </div>
+          </section>
+        ) : (
+          <>
+            <FilterPanel
+              accountName={accountName}
+              startDate={startDate}
+              endDate={endDate}
+              onAccountNameChange={setAccountName}
+              onStartDateChange={setStartDate}
+              onEndDateChange={setEndDate}
+              onAction={handleAction}
             />
-          )}
-        </section>
+
+            <section className="table-card">
+              <div className="table-tabs">
+                {['专户', '账户', '第二估值'].map((tab) => (
+                  <button
+                    className={activeTab === tab ? 'selected' : ''}
+                    type="button"
+                    key={tab}
+                    onClick={() => handleTabClick(tab)}
+                  >
+                    {tab}
+                  </button>
+                ))}
+                <span>{statusText}</span>
+              </div>
+
+              <DataTable
+                rows={rows}
+                columnWidths={columnWidths}
+                isPagedTab={isPagedTab}
+                currentLoading={currentLoading}
+                currentError={currentError}
+                activeTab={activeTab}
+                onColumnResizeStart={handleColumnResizeStart}
+              />
+
+              {isPagedTab && (
+                <Pagination
+                  currentPage={currentPage}
+                  paginationPages={paginationPages}
+                  currentLoading={currentLoading}
+                  onPageChange={handlePageChange}
+                />
+              )}
+            </section>
+          </>
+        )}
 
         <footer className="quick-tools">
           {['?', '筛选', '设置', '提醒'].map((label) => (
