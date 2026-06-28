@@ -8,8 +8,7 @@ const pageSize = 15
 const prodAssetValuUrl = '/ficc/prodAssetValu/queryList'
 const prodAssetValuOfInUrl = '/ficc/prodAssetValuOfIn/queryList'
 const dualProdAssetValuOfoutUrl = '/ficc/dualProdAssetValuOfout/queryList'
-const authToken = 'Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJ1c2VyLTAwMSIsInVzZXJuYW1lIjoiYWRtaW4iLCJpYXQiOjE3ODI1NjQ1NDgsImV4cCI6MTc4MjY1MDk0OH0.uU-8hZEncotQDaNoiPsy8LA5i0pAwzU5zIzF-Q6p92GKw3YQXLrsCXrV6wpXTXMr'
-
+const authToken = 'Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJ1c2VyLTAwMSIsInVzZXJuYW1lIjoiYWRtaW4iLCJpYXQiOjE3ODI2NTc0NDcsImV4cCI6MTc4Mjc0Mzg0N30.YIE1O70cEe5jGnpbTBm8haKThxwrs88wgfwrKTpxtHV_PQd8DvxYrCLB6e6vs9OU'
 
 const menuGroups = [
   { label: '首页', icon: '⌂' },
