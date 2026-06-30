@@ -220,10 +220,67 @@ function App() {
         </div>
 
         {isHomePage ? (
-          <section className="welcome-page">
-            <div className="welcome-content">
-              <h1>欢迎进入</h1>
-              <p>FICC投资顾问业务管理系统</p>
+          <section className="home-page">
+            <div className="home-info-bar">
+              <span>📋 欢迎回来</span>
+              <span>今天是 {new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' })}</span>
+            </div>
+
+            <div className="home-hero">
+              <div className="hero-badge">
+                <div className="hero-ellipse" />
+                <span className="hero-icon-text">◈</span>
+              </div>
+              <h1>FICC投资顾问业务管理系统</h1>
+              <p>专业、高效、智能的投资顾问业务管理平台，助力业务决策与风险管控</p>
+            </div>
+
+            <div className="home-stats">
+              {[
+                { label: '产品总数', value: '128', icon: '▣', color: '#5a7df0' },
+                { label: '客户总数', value: '356', icon: '◉', color: '#11c6d6' },
+                { label: '本月交易', value: '1,024', icon: '▧', color: '#f0a050' },
+                { label: '待处理任务', value: '8', icon: '◎', color: '#e06060' },
+              ].map((stat) => (
+                <div className="stat-card" key={stat.label}>
+                  <div className="stat-icon" style={{ background: stat.color }}>
+                    {stat.icon}
+                  </div>
+                  <div className="stat-body">
+                    <strong>{stat.value}</strong>
+                    <span>{stat.label}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="home-grid">
+              <div className="home-card">
+                <div className="card-header">
+                  <h3>▤ 快捷入口</h3>
+                </div>
+                <div className="card-body quick-links">
+                  {['产品列表', '客户列表', '持仓明细(估值表)', '申赎情况录入'].map((item) => (
+                    <button key={item} type="button" onClick={() => handleMenuClick(item)}>
+                      ▸ {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="home-card">
+                <div className="card-header">
+                  <h3>☷ 最新动态</h3>
+                </div>
+                <div className="card-body">
+                  <ul className="news-list">
+                    <li><span className="news-time">06-28</span> 产品估值报表已更新</li>
+                    <li><span className="news-time">06-27</span> 新增客户 3 户，待审批</li>
+                    <li><span className="news-time">06-26</span> 月度组合分析报告已生成</li>
+                    <li><span className="news-time">06-25</span> 风险指标正常，无异常预警</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </section>
         ) : (
