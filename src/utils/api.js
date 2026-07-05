@@ -34,15 +34,21 @@ async function fetchPagedData({ url, pageNum, filters, mapRecord, filterKey }) {
   }
 
   const result = await response.json()
-  const records = Array.isArray(result.records) ? result.records : []
+
+  if (result.code !== 200) {
+    throw new Error(result.message || '接口业务错误')
+  }
+
+  const body = result.data || result
+  const records = Array.isArray(body.records) ? body.records : []
 
   return {
     rows: records.map(mapRecord),
     page: {
-      pageNum: result.pageNum || pageNum,
-      pageSize: result.pageSize || pageSize,
-      total: result.total || 0,
-      pages: result.pages || 0,
+      pageNum: body.pageNum || pageNum,
+      pageSize: body.pageSize || pageSize,
+      total: body.total || 0,
+      pages: body.pages || 0,
     },
   }
 }
